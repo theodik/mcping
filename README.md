@@ -53,8 +53,18 @@ Download binary or build from source and run.
 
 ## Build from source
 
+### Linux/Mac
+
 ```
 gcc mcping.c -o mcping
+```
+
+### Windows
+
+You can use [Visual C++ Build Tools](http://landinghub.visualstudio.com/visual-cpp-build-tools) or [Visual Studio](https://msdn.microsoft.com/en-us/library/bb384838.aspx)
+
+```
+cl mcping.c
 ```
 
 ## License
