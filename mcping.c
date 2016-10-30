@@ -20,7 +20,7 @@
 typedef SSIZE_T ssize_t; 
 #endif
 
-size_t build_handshake(char *buffer, char *host, unsigned short port) {
+size_t build_handshake(unsigned char *buffer, char *host, unsigned short port) {
   size_t host_len = strlen(host);
   size_t len = 1 /* packet id */ + 2 /* Protocol version */;
   len += 1 /* str len */ + host_len;
@@ -83,7 +83,7 @@ int main(int argc, char **argv) {
   size_t len;
   ssize_t nread;
   char byte;
-  char handshake[HANDSHAKE_SIZE];
+  unsigned char handshake[HANDSHAKE_SIZE];
   char request[] = {0x1, 0x0};
   char string[STRING_BUF_SIZE];
 
