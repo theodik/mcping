@@ -77,6 +77,7 @@ int read_varint(const int sfd) {
 
 int main(int argc, char **argv) {
   unsigned short port;
+  char port_str[5];
   struct addrinfo hints;
   struct addrinfo *result, *rp;
   int sfd, s, json_len;
@@ -87,8 +88,8 @@ int main(int argc, char **argv) {
   char request[] = {0x1, 0x0};
   char string[STRING_BUF_SIZE];
 
-  if (argc != 3) {
-    printf("MC Ping 1.0.1, Minecraft Server List Ping tool.\n");
+  if (argc < 2) {
+    printf("MC Ping 1.1.0, Minecraft Server List Ping tool.\n");
     printf("Usage: mcping <host> <port>\n");
     return EXIT_FAILURE;
   }
@@ -98,7 +99,12 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
 
-  port = atoi(argv[2]);
+  if (argc < 3) {
+    port = 25565;
+  } else {
+    port = atoi(argv[2]);
+  }
+
   if (port == 0) {
     fprintf(stderr, "Invalid port\n");
     return EXIT_FAILURE;
@@ -141,7 +147,8 @@ int main(int argc, char **argv) {
   hints.ai_flags = 0;
   hints.ai_protocol = 0;          /* Any protocol */
 
-  s = getaddrinfo(argv[1], argv[2], &hints, &result);
+  sprintf(port_str, "%d", port);
+  s = getaddrinfo(argv[1], port_str, &hints, &result);
   if (s != 0) {
     fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
     return EXIT_FAILURE;
