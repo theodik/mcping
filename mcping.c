@@ -60,6 +60,7 @@ int read_varint(const int sfd) {
   do {
     if (read_byte(sfd, &byte) == 0){
       fprintf(stderr, "Failed read varint: eof\n");
+      exit(EXIT_FAILURE);
     }
     value = byte & 0x7F;
     result |= value << (7 * numread);
