@@ -78,7 +78,7 @@ int read_varint(const int sfd) {
 
 int main(int argc, char **argv) {
   unsigned short port;
-  char port_str[5];
+  char port_str[6];
   struct addrinfo hints;
   struct addrinfo *result, *rp;
   int sfd, s, json_len;
