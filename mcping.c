@@ -90,7 +90,7 @@ int main(int argc, char **argv) {
   char string[STRING_BUF_SIZE];
 
   if (argc < 2) {
-    printf("MC Ping 1.1.0, Minecraft Server List Ping tool.\n");
+    printf("MC Ping 1.2.0, Minecraft Server List Ping tool.\n");
     printf("Usage: mcping <host> <port>\n");
     return EXIT_FAILURE;
   }
