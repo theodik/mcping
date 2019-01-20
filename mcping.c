@@ -4,21 +4,101 @@
 #include <Ws2tcpip.h>
 #else
 #include <sys/socket.h>
+#include <fcntl.h>
 #include <netdb.h>
 #include <unistd.h>
 #endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 
 #define HANDSHAKE_SIZE 1024
 #define STRING_BUF_SIZE 4096
 #define PROTOCOL_VERSION 210
+#define TIMEOUT_USEC 500000 // 500ms
 
 #ifdef _WIN32
 #pragma comment(lib, "Ws2_32.lib")
-typedef SSIZE_T ssize_t; 
+typedef SSIZE_T ssize_t;
 #endif
+
+int connect_w_to(struct addrinfo *addr, suseconds_t usec) {
+  int res;
+  long arg;
+  fd_set myset;
+  struct timeval tv;
+  int valopt;
+  socklen_t lon;
+  int soc;
+
+  // Create socket
+  soc = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
+  if (soc < 0) {
+     fprintf(stderr, "Error creating socket (%d %s)\n", errno, strerror(errno));
+     return -1;
+  }
+
+  // Set non-blocking
+  if ((arg = fcntl(soc, F_GETFL, NULL)) < 0) {
+     fprintf(stderr, "Error fcntl(..., F_GETFL) (%s)\n", strerror(errno));
+     return -1;
+  }
+  arg |= O_NONBLOCK;
+  if (fcntl(soc, F_SETFL, arg) < 0) {
+     fprintf(stderr, "Error fcntl(..., F_SETFL) (%s)\n", strerror(errno));
+     return -1;
+  }
+  // Trying to connect with timeout
+  res = connect(soc, addr->ai_addr, addr->ai_addrlen);
+  if (res < 0) {
+     if (errno == EINPROGRESS) {
+        do {
+           tv.tv_sec = 0;
+           tv.tv_usec = usec;
+           FD_ZERO(&myset);
+           FD_SET(soc, &myset);
+           res = select(soc+1, NULL, &myset, NULL, &tv);
+           if (res < 0 && errno != EINTR) {
+              fprintf(stderr, "Error connecting %d - %s\n", errno, strerror(errno));
+              return -1;
+           }
+           else if (res > 0) {
+              // Socket selected for write
+              lon = sizeof(int);
+              if (getsockopt(soc, SOL_SOCKET, SO_ERROR, (void*)(&valopt), &lon) < 0) {
+                 fprintf(stderr, "Error in getsockopt() %d - %s\n", errno, strerror(errno));
+                 return -1;
+              }
+              // Check the value returned...
+              if (valopt) {
+                 return -1;
+              }
+              break;
+           }
+           else {
+              return -1;
+           }
+        } while (1);
+     }
+     else {
+        fprintf(stderr, "Error connecting %d - %s\n", errno, strerror(errno));
+        return -1;
+     }
+  }
+  // Set to blocking mode again...
+  if( (arg = fcntl(soc, F_GETFL, NULL)) < 0) {
+     fprintf(stderr, "Error fcntl(..., F_GETFL) (%s)\n", strerror(errno));
+     return -1;
+  }
+  arg &= (~O_NONBLOCK);
+  if( fcntl(soc, F_SETFL, arg) < 0) {
+     fprintf(stderr, "Error fcntl(..., F_SETFL) (%s)\n", strerror(errno));
+     return -1;
+  }
+
+  return soc;
+}
 
 size_t build_handshake(unsigned char *buffer, char *host, unsigned short port) {
   size_t host_len = strlen(host);
@@ -123,7 +203,7 @@ int main(int argc, char **argv) {
     if (err != 0) {
       /* Tell the user that we could not find a usable */
       /* Winsock DLL.                                  */
-      printf("WSAStartup failed with error: %d\n", err);
+      fprintf(stderr, "WSAStartup failed with error: %d\n", err);
       return EXIT_FAILURE;
     }
     /* Confirm that the WinSock DLL supports 2.2.*/
@@ -135,7 +215,7 @@ int main(int argc, char **argv) {
     if (LOBYTE(wsaData.wVersion) != 2 || HIBYTE(wsaData.wVersion) != 2) {
       /* Tell the user that we could not find a usable */
       /* WinSock DLL.                                  */
-      printf("Could not find a usable version of Winsock.dll\n");
+      fprintf(stderr, "Could not find a usable version of Winsock.dll\n");
       WSACleanup();
       return EXIT_FAILURE;
     }
@@ -161,12 +241,10 @@ int main(int argc, char **argv) {
      and) try the next address. */
 
   for (rp = result; rp != NULL; rp = rp->ai_next) {
-    sfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
-    if (sfd == -1)
-      continue;
-
-    if (connect(sfd, rp->ai_addr, rp->ai_addrlen) != -1)
-      break; /* Success */
+    sfd = connect_w_to(rp, TIMEOUT_USEC);
+    if (sfd != -1) {
+      break;
+    }
 
     close(sfd);
   }
@@ -212,6 +290,6 @@ int main(int argc, char **argv) {
 
     fwrite(string, 1, nread, stdout);
   }
-  
+
   return EXIT_SUCCESS;
 }
