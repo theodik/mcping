@@ -100,6 +100,24 @@ int connect_w_to(struct addrinfo *addr, suseconds_t usec) {
   return soc;
 }
 
+int set_timeout(int sfd, suseconds_t usec) {
+    struct timeval timeout;
+    timeout.tv_sec = 0;
+    timeout.tv_usec = usec;
+
+    if (setsockopt (sfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout)) < 0) {
+        fprintf(stderr, "setsockopt failed\n");
+        return -1;
+    }
+
+    if (setsockopt (sfd, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout, sizeof(timeout)) < 0) {
+        fprintf(stderr, "setsockopt failed\n");
+        return -1;
+    }
+
+    return 0;
+}
+
 size_t build_handshake(unsigned char *buffer, char *host, unsigned short port) {
   size_t host_len = strlen(host);
   size_t len = 1 /* packet id */ + 2 /* Protocol version */;
@@ -251,6 +269,10 @@ int main(int argc, char **argv) {
 
   if (rp == NULL) {  /* No address succeeded */
     fprintf(stderr, "Could not connect\n");
+    return EXIT_FAILURE;
+  }
+
+  if (set_timeout(sfd, TIMEOUT_USEC) == -1) {
     return EXIT_FAILURE;
   }
 
